@@ -31,7 +31,7 @@ Open a terminal and run:
 
 ```bash
 git clone https://github.com/TarifEKhan/Scene-of-the-crime.git
-
+```
 ### 2. Open the Project in Unity Hub
 
 Launch Unity Hub
