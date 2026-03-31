@@ -34,7 +34,7 @@ git clone https://github.com/TarifEKhan/Scene-of-the-crime.git
 ```
 ### 2. Open the Project in Unity Hub
 
-Launch Unity Hub
-Click Add or Open
-Select the cloned project folder
-Make sure the project is opened with Unity 6.4
+- Launch Unity Hub
+- Click Add or Open
+- Select the cloned project folder
+- Make sure the project is opened with Unity 6.4
