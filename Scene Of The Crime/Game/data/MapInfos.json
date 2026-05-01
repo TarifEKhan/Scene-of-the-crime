@@ -1,9 +1,11 @@
 [
 null,
 {"id":1,"expanded":true,"name":"MAP001","order":1,"parentId":0,"scrollX":2094.6666666666665,"scrollY":874.6666666666666,"quick":false},
-{"id":2,"expanded":false,"name":"Living Room","order":2,"parentId":1,"scrollX":1072,"scrollY":870,"quick":false},
-{"id":3,"expanded":false,"name":"Harold's Room","order":3,"parentId":1,"scrollX":2094.6666666666665,"scrollY":874.6666666666666,"quick":false},
+{"id":2,"expanded":false,"name":"All Rooms","order":2,"parentId":1,"scrollX":2094.6666666666665,"scrollY":874.6666666666666,"quick":false},
+{"id":3,"expanded":false,"name":"Harold's Room","order":3,"parentId":1,"scrollX":816,"scrollY":624,"quick":false},
 {"id":4,"expanded":false,"name":"Barry's Room","order":4,"parentId":1,"scrollX":2094.6666666666665,"scrollY":874.6666666666666,"quick":false},
 {"id":5,"expanded":false,"name":"Peter's Room","order":5,"parentId":1,"scrollX":2094.6666666666665,"scrollY":874.6666666666666,"quick":false},
-{"id":6,"expanded":false,"name":"Deniss's Room","order":6,"parentId":1,"scrollX":0,"scrollY":0,"quick":false}
+{"id":6,"expanded":false,"name":"Deniss's Room","order":6,"parentId":1,"scrollX":0,"scrollY":0,"quick":false},
+{"id":7,"expanded":false,"name":"Living Room","order":7,"parentId":1,"scrollX":848,"scrollY":874,"quick":false},
+{"id":8,"expanded":false,"name":"Bathroom","order":8,"parentId":1,"scrollX":2094.6666666666665,"scrollY":874.6666666666666,"quick":false}
 ]
