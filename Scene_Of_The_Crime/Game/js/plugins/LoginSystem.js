@@ -585,7 +585,7 @@
 
         const cursorX = this.textWidth(displayText);
         const cursorY = this.lineHeight() * 2 - 4;
-        this.contents.fillRect(cursorX, cursorY, 2, 2, this.normalColor());
+        this.contents.fillRect(cursorX, cursorY, 2, 2, ColorManager.normalColor());
     };
 
     //-----------------------------------------------------------------------------
