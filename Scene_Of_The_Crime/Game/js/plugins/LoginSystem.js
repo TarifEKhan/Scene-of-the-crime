@@ -88,7 +88,8 @@
     AuthManager._requestInProgress = false;
 
     AuthManager.initialize = function() {
-        this.loadSession();
+        // Don't auto-load session - users must log in each time
+        this.clearSession();
     };
 
     AuthManager.isAuthenticated = function() {
@@ -220,15 +221,10 @@
                 } else if (data.error) {
                     reject({ error: data.error });
                 } else {
-                    this._token = data.token;
-                    this._userId = data.userId;
-                    this._username = data.username;
-                    this._isGuest = false;
-                    this.saveSession();
+                    // Don't save session on registration - user must log in
                     resolve({
-                        token: this._token,
-                        userId: this._userId,
-                        username: this._username
+                        username: data.username,
+                        registered: true
                     });
                 }
             } catch (e) {
@@ -408,8 +404,7 @@
 
     Scene_Login.prototype.commandGuest = function() {
         AuthManager.loginAsGuest();
-        this.fadeOutAll();
-        SceneManager.goto(Scene_Title);
+        this.autoStartGame();
     };
 
     Scene_Login.prototype.onInputOk = function() {
@@ -476,11 +471,26 @@
         promise
             .then(response => {
                 SoundManager.playOk();
-                this._statusWindow.setText("Success!");
-                setTimeout(() => {
-                    this.fadeOutAll();
-                    SceneManager.goto(Scene_Title);
-                }, 500);
+
+                // Handle registration differently - redirect to login
+                if (this._mode === "register") {
+                    this._statusWindow.setText("Registration successful! Please log in.");
+                    setTimeout(() => {
+                        // Switch to login mode
+                        this._mode = "login";
+                        this._loginStep = "username";
+                        this._username = "";
+                        this._password = "";
+                        this._editWindow.setup("Username:", "", 30);
+                        this._inputWindow.activate();
+                    }, 1500);
+                } else {
+                    // Login mode - auto-load save or start new game
+                    this._statusWindow.setText("Success! Loading game...");
+                    setTimeout(() => {
+                        this.autoStartGame();
+                    }, 500);
+                }
             })
             .catch(error => {
                 SoundManager.playBuzzer();
@@ -496,6 +506,39 @@
                 );
                 this._inputWindow.activate();
             });
+    };
+
+    Scene_Login.prototype.autoStartGame = function() {
+        this.fadeOutAll();
+
+        // Check if any save files exist
+        if (DataManager.isAnySavefileExists()) {
+            // Load the latest save file
+            const savefileId = DataManager.latestSavefileId();
+            if (savefileId > 0) {
+                DataManager.loadGame(savefileId)
+                    .then(() => {
+                        SoundManager.playLoad();
+                        Scene_Load.prototype.reloadMapIfUpdated.call(this);
+                        SceneManager.goto(Scene_Map);
+                    })
+                    .catch(() => {
+                        // If load fails, start new game
+                        this.startNewGame();
+                    });
+            } else {
+                // No valid save, start new game
+                this.startNewGame();
+            }
+        } else {
+            // No saves exist, start new game
+            this.startNewGame();
+        }
+    };
+
+    Scene_Login.prototype.startNewGame = function() {
+        DataManager.setupNewGame();
+        SceneManager.goto(Scene_Map);
     };
 
     Scene_Login.prototype.update = function() {
@@ -734,8 +777,75 @@
     };
 
     //-----------------------------------------------------------------------------
+    // Window_UserDisplay
+    // Displays the current logged-in username in the corner.
+
+    function Window_UserDisplay() {
+        this.initialize(...arguments);
+    }
+
+    Window_UserDisplay.prototype = Object.create(Window_Base.prototype);
+    Window_UserDisplay.prototype.constructor = Window_UserDisplay;
+
+    Window_UserDisplay.prototype.initialize = function(rect) {
+        Window_Base.prototype.initialize.call(this, rect);
+        this.refresh();
+    };
+
+    Window_UserDisplay.prototype.refresh = function() {
+        this.contents.clear();
+        const username = AuthManager.getUsername();
+        if (username) {
+            const displayText = AuthManager.isGuest() ? "Guest" : username;
+            this.drawText(displayText, 0, 0, this.innerWidth, "left");
+        }
+    };
+
+    //-----------------------------------------------------------------------------
+    // Scene_Title Override
+    // Add username display to title screen.
+
+    const _Scene_Title_create = Scene_Title.prototype.create;
+    Scene_Title.prototype.create = function() {
+        _Scene_Title_create.call(this);
+        this.createUserDisplay();
+    };
+
+    Scene_Title.prototype.createUserDisplay = function() {
+        const width = 200;
+        const height = this.calcWindowHeight(1, false);
+        const x = Graphics.boxWidth - width - 10;
+        const y = 10;
+        const rect = new Rectangle(x, y, width, height);
+        this._userDisplayWindow = new Window_UserDisplay(rect);
+        this._userDisplayWindow.opacity = 180;
+        this.addWindow(this._userDisplayWindow);
+    };
+
+    //-----------------------------------------------------------------------------
+    // Scene_Map Override
+    // Add username display during gameplay.
+
+    const _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
+    Scene_Map.prototype.createAllWindows = function() {
+        _Scene_Map_createAllWindows.call(this);
+        this.createUserDisplay();
+    };
+
+    Scene_Map.prototype.createUserDisplay = function() {
+        const width = 200;
+        const height = this.calcWindowHeight(1, false);
+        const x = Graphics.boxWidth - width - 10;
+        const y = 10;
+        const rect = new Rectangle(x, y, width, height);
+        this._userDisplayWindow = new Window_UserDisplay(rect);
+        this._userDisplayWindow.opacity = 180;
+        this.addWindow(this._userDisplayWindow);
+    };
+
+    //-----------------------------------------------------------------------------
     // Scene_Boot Override
-    // Redirect to login screen on first launch.
+    // Always redirect to login screen on game start.
 
     const _Scene_Boot_startNormalGame = Scene_Boot.prototype.startNormalGame;
     Scene_Boot.prototype.startNormalGame = function() {
@@ -745,11 +855,8 @@
 
         AuthManager.initialize();
 
-        if (AuthManager.isAuthenticated() || AuthManager.isGuest()) {
-            SceneManager.goto(Scene_Splash);
-        } else {
-            SceneManager.goto(Scene_Login);
-        }
+        // Always require login
+        SceneManager.goto(Scene_Login);
     };
 
 })();
