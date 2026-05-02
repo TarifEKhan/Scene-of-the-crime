@@ -802,8 +802,18 @@
     };
 
     //-----------------------------------------------------------------------------
+    // Window_TitleCommand Override
+    // Add logout option to title menu.
+
+    const _Window_TitleCommand_makeCommandList = Window_TitleCommand.prototype.makeCommandList;
+    Window_TitleCommand.prototype.makeCommandList = function() {
+        _Window_TitleCommand_makeCommandList.call(this);
+        this.addCommand("Logout", "logout");
+    };
+
+    //-----------------------------------------------------------------------------
     // Scene_Title Override
-    // Add username display to title screen.
+    // Add username display to title screen and logout functionality.
 
     const _Scene_Title_create = Scene_Title.prototype.create;
     Scene_Title.prototype.create = function() {
@@ -820,6 +830,30 @@
         this._userDisplayWindow = new Window_UserDisplay(rect);
         this._userDisplayWindow.opacity = 180;
         this.addWindow(this._userDisplayWindow);
+    };
+
+    const _Scene_Title_createCommandWindow = Scene_Title.prototype.createCommandWindow;
+    Scene_Title.prototype.createCommandWindow = function() {
+        _Scene_Title_createCommandWindow.call(this);
+        this._commandWindow.setHandler("logout", this.commandLogout.bind(this));
+    };
+
+    const _Scene_Title_commandWindowRect = Scene_Title.prototype.commandWindowRect;
+    Scene_Title.prototype.commandWindowRect = function() {
+        const offsetX = $dataSystem.titleCommandWindow.offsetX;
+        const offsetY = $dataSystem.titleCommandWindow.offsetY;
+        const ww = this.mainCommandWidth();
+        const wh = this.calcWindowHeight(4, true); // Changed from 3 to 4 for logout option
+        const wx = (Graphics.boxWidth - ww) / 2 + offsetX;
+        const wy = Graphics.boxHeight - wh - 96 + offsetY;
+        return new Rectangle(wx, wy, ww, wh);
+    };
+
+    Scene_Title.prototype.commandLogout = function() {
+        this._commandWindow.close();
+        AuthManager.logout();
+        this.fadeOutAll();
+        SceneManager.goto(Scene_Login);
     };
 
     //-----------------------------------------------------------------------------
