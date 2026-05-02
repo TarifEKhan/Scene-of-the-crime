@@ -36,17 +36,19 @@
  * This plugin adds a login screen before the title screen.
  *
  * Features:
- * - User registration with email/password via Supabase
- * - Login with Supabase authentication
+ * - User registration with username/password via Supabase
+ * - Login with custom username-based authentication
  * - Guest/offline mode option
  * - Session management with automatic token storage
+ * - Secure password hashing with bcrypt
  * - Supabase backend integration
  *
  * Setup:
  * 1. Create a Supabase project at https://supabase.com
  * 2. Get your project URL and anon key from Settings > API
- * 3. Configure supabaseUrl and supabaseKey parameters
- * 4. Enable/disable guest mode as needed
+ * 3. Run the SQL setup script to create tables and functions
+ * 4. Configure supabaseUrl and supabaseKey parameters
+ * 5. Enable/disable guest mode as needed
  *
  * Global Access:
  * - AuthManager.getUserId() - Get current user ID
@@ -148,7 +150,7 @@
         return Date.now() - session.timestamp > timeout;
     };
 
-    AuthManager.login = function(email, password) {
+    AuthManager.login = function(username, password) {
         if (!supabase) {
             return Promise.reject({ error: "Supabase not configured" });
         }
@@ -162,19 +164,21 @@
             this._requestInProgress = true;
 
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
+                const { data, error } = await supabase.rpc('login_user', {
+                    p_username: username,
+                    p_password: password
                 });
 
                 this._requestInProgress = false;
 
                 if (error) {
                     reject({ error: error.message });
+                } else if (data.error) {
+                    reject({ error: data.error });
                 } else {
-                    this._token = data.session.access_token;
-                    this._userId = data.user.id;
-                    this._username = email;
+                    this._token = data.token;
+                    this._userId = data.userId;
+                    this._username = data.username;
                     this._isGuest = false;
                     this.saveSession();
                     resolve({
@@ -190,7 +194,7 @@
         });
     };
 
-    AuthManager.register = function(email, password) {
+    AuthManager.register = function(username, password) {
         if (!supabase) {
             return Promise.reject({ error: "Supabase not configured" });
         }
@@ -204,19 +208,21 @@
             this._requestInProgress = true;
 
             try {
-                const { data, error } = await supabase.auth.signUp({
-                    email: email,
-                    password: password
+                const { data, error } = await supabase.rpc('register_user', {
+                    p_username: username,
+                    p_password: password
                 });
 
                 this._requestInProgress = false;
 
                 if (error) {
                     reject({ error: error.message });
+                } else if (data.error) {
+                    reject({ error: data.error });
                 } else {
-                    this._token = data.session.access_token;
-                    this._userId = data.user.id;
-                    this._username = email;
+                    this._token = data.token;
+                    this._userId = data.userId;
+                    this._username = data.username;
                     this._isGuest = false;
                     this.saveSession();
                     resolve({
@@ -382,7 +388,7 @@
         this._username = "";
         this._password = "";
         this._commandWindow.hide();
-        this._editWindow.setup("Email:", "", 30);
+        this._editWindow.setup("Username:", "", 30);
         this._editWindow.show();
         this._inputWindow.show();
         this._inputWindow.activate();
@@ -394,7 +400,7 @@
         this._username = "";
         this._password = "";
         this._commandWindow.hide();
-        this._editWindow.setup("Email:", "", 30);
+        this._editWindow.setup("Username:", "", 30);
         this._editWindow.show();
         this._inputWindow.show();
         this._inputWindow.activate();
@@ -410,8 +416,8 @@
         const text = this._editWindow.getText();
 
         if (this._loginStep === "username") {
-            if (!text.includes("@")) {
-                this._statusWindow.setText("Please enter a valid email address");
+            if (text.length < 3) {
+                this._statusWindow.setText("Username must be at least 3 characters");
                 this._statusWindow.show();
                 SoundManager.playBuzzer();
                 return;
@@ -439,7 +445,7 @@
             this._loginStep = "username";
             this._password = "";
             this._editWindow.setup(
-                "Email:",
+                "Username:",
                 this._username,
                 30
             );
@@ -484,7 +490,7 @@
                 this._username = "";
                 this._password = "";
                 this._editWindow.setup(
-                    "Email:",
+                    "Username:",
                     "",
                     30
                 );
