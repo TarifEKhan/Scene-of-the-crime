@@ -624,6 +624,11 @@
         this.activate();
     };
 
+    Window_LoginInput.prototype.updateCursor = function() {
+        const rect = this.itemRect(this._index);
+        this.setCursorRect(rect.x, rect.y, rect.width, rect.height);
+    };
+
     Window_LoginInput.prototype.maxCols = function() {
         return 10;
     };
