@@ -184,24 +184,31 @@ ChatDataManager.postMessage = async function(content, parentMessageId = null) {
  */
 ChatDataManager.deleteMessage = async function(messageId) {
     if (!this._canWrite()) {
-        console.warn('Cannot delete: user not authenticated or is a guest.');
+        console.warn('Cannot delete: not authenticated or is a guest.');
         return false;
     }
 
     try {
-        const { error } = await this.supabase
-            .from('chat_messages')
-            .update({ deleted_at: new Date().toISOString() })
-            .eq('id', messageId);
+        // Use a SECURITY DEFINER RPC so the delete bypasses RLS entirely.
+        // The function enforces ownership (user_id check) on the server side.
+        const { data, error } = await this.supabase.rpc('delete_chat_message', {
+            p_message_id: messageId,
+            p_user_id:    AuthManager.getUserId()
+        });
 
         if (error) {
-            console.error('Error deleting message:', error);
+            console.error('Delete RPC error:', error);
+            return false;
+        }
+
+        if (data !== true) {
+            console.warn('Delete matched no rows — message not found or wrong owner.');
             return false;
         }
 
         return true;
     } catch (error) {
-        console.error('Exception deleting message:', error);
+        console.error('Delete exception:', error);
         return false;
     }
 };

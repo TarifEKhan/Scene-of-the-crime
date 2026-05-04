@@ -202,6 +202,11 @@ Scene_Chat.prototype.deleteMessage = async function(messageId) {
     const success = await ChatDataManager.deleteMessage(messageId);
     if (success) {
         SoundManager.playCursor();
+        // Remove from local display immediately — no waiting for a network round-trip.
+        if (this._chatWindow) this._chatWindow.removeMessage(messageId);
+        // Then sync with the server in the background to get a clean authoritative list.
+        this.isLoadingMessages = false;
+        this.autoRefreshTimer = 0;
         this.refreshMessages();
     } else {
         SoundManager.playBuzzer();
@@ -228,7 +233,8 @@ Scene_Chat.prototype.cancelReply = function() {
 
 Scene_Chat.prototype.onChatMessageOk = function() {
     const index = this._chatWindow.index();
-    const message = this._chatWindow._messages[index];
+    const item = this._chatWindow._flatItems[index];
+    const message = item ? item.message : null;
     if (message) {
         this.showMessageActions(message);
     } else {

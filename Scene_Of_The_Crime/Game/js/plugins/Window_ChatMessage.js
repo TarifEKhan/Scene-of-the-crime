@@ -1,6 +1,7 @@
 //=============================================================================
 // Window_ChatMessage.js
-// Displays chat messages in a scrollable list
+// Displays chat messages in a scrollable list with dynamic heights and
+// threaded replies grouped directly below their parent message.
 //=============================================================================
 
 function Window_ChatMessage(rect) {
@@ -12,13 +13,13 @@ Window_ChatMessage.prototype.constructor = Window_ChatMessage;
 
 Window_ChatMessage.prototype.initialize = function(rect) {
     Window_Selectable.prototype.initialize.call(this, rect);
-    this._messages = [];
-    this._sceneChat = null;
-    this._messageReplies = {};
-    this._expandedMessages = new Set();
+    this._messages    = [];   // raw flat array from Supabase
+    this._flatItems   = [];   // {message, isReply} in threaded display order
+    this._computedHeights = []; // pixel height of each flat item
+    this._yOffsets    = [];   // cumulative y start of each flat item
+    this._sceneChat   = null;
     this.select(0);
-    // Window_Selectable.initialize always ends with deactivate(), so we must
-    // explicitly re-activate here for clicks and wheel scroll to work.
+    // Window_Selectable.initialize ends with deactivate(); re-activate for clicks/scroll.
     this.activate();
 };
 
@@ -26,84 +27,225 @@ Window_ChatMessage.prototype.setSceneChat = function(sceneChat) {
     this._sceneChat = sceneChat;
 };
 
+//-----------------------------------------------------------------------------
+// Message loading
+//-----------------------------------------------------------------------------
+
 Window_ChatMessage.prototype.setMessages = function(messages) {
-    const isFirstLoad   = this._messages.length === 0;
-    const prevScrollY   = this.scrollY();
-    const maxPrev       = Math.max(0, this.overallHeight() - this.innerHeight);
-    const wasAtBottom   = prevScrollY >= maxPrev - 5;
+    const isFirstLoad = this._messages.length === 0;
+    const prevScrollY = this.scrollY();
+    const maxPrev     = Math.max(0, this.overallHeight() - this.innerHeight);
+    const wasAtBottom = prevScrollY >= maxPrev - 5;
 
     this._messages = messages;
-    this._messageReplies = {};
-    this._expandedMessages.clear();
-    this.refresh(); // createContents() inside refresh resets scroll to 0
+    this._rebuildLayout();
+    this.refresh(); // createContents() (correct size) + drawAllItems()
 
     if (isFirstLoad || wasAtBottom) {
-        // Auto-follow new messages when already at the bottom
         this.scrollTo(0, this.overallHeight());
     } else {
-        // User is reading old messages — keep their position
         this.scrollTo(0, prevScrollY);
     }
 };
 
-Window_ChatMessage.prototype.maxItems = function() {
-    return this._messages.length;
+//-----------------------------------------------------------------------------
+// Layout computation
+//-----------------------------------------------------------------------------
+
+Window_ChatMessage.prototype._rebuildLayout = function() {
+    // ── Group messages: parents first, replies map by parent id ──────────────
+    const parents = [];
+    const repliesByParent = {};
+
+    for (const msg of this._messages) {
+        if (msg.parent_message_id) {
+            if (!repliesByParent[msg.parent_message_id]) {
+                repliesByParent[msg.parent_message_id] = [];
+            }
+            repliesByParent[msg.parent_message_id].push(msg);
+        } else {
+            parents.push(msg);
+        }
+    }
+
+    for (const parentId in repliesByParent) {
+        repliesByParent[parentId].sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        );
+    }
+
+    // ── Build flat display order: parent → its replies → next parent → … ─────
+    const parentIdSet = new Set(parents.map(m => m.id));
+    this._flatItems = [];
+
+    for (const parent of parents) {
+        this._flatItems.push({ message: parent, isReply: false });
+        for (const reply of (repliesByParent[parent.id] || [])) {
+            this._flatItems.push({ message: reply, isReply: true });
+        }
+    }
+    // Orphaned replies (parent outside the fetch window or deleted)
+    for (const parentId in repliesByParent) {
+        if (!parentIdSet.has(parentId)) {
+            for (const reply of repliesByParent[parentId]) {
+                this._flatItems.push({ message: reply, isReply: true });
+            }
+        }
+    }
+
+    // ── Pre-compute heights and cumulative y offsets ──────────────────────────
+    this._computedHeights = [];
+    this._yOffsets = [];
+
+    // Set font size to match drawItem content rendering before measuring text.
+    if (this.contents) this.contents.fontSize = 16;
+
+    const lh      = this.lineHeight();
+    const baseW   = this.innerWidth - 32; // innerWidth - colSpacing(8) - 24px margin
+
+    let currentY = 0;
+    for (const item of this._flatItems) {
+        this._yOffsets.push(currentY);
+
+        const indent  = item.isReply ? 32 : 0;
+        const topPad  = item.isReply ? 8  : 0;
+        const cw      = baseW - indent;
+
+        const lines   = this.wrapText(item.message.content, cw);
+        // header (username + timestamp row) + content lines + bottom pad
+        const raw     = topPad + 28 + lines.length * (lh - 8) + 8;
+        const height  = Math.max(raw, lh * 2);
+
+        this._computedHeights.push(height);
+        currentY += height;
+    }
 };
 
-Window_ChatMessage.prototype.itemHeight = function() {
-    return this.lineHeight() * 3;
+//-----------------------------------------------------------------------------
+// Window_Selectable overrides — variable-height scroll system
+//-----------------------------------------------------------------------------
+
+Window_ChatMessage.prototype.maxItems = function() {
+    return this._flatItems ? this._flatItems.length : 0;
 };
+
+// itemHeight() is intentionally NOT overridden — the base value (~44px) is used
+// only as the scroll block size (how many pixels per paint() tick). The actual
+// per-item heights come from _computedHeights via itemRect().
+
+Window_ChatMessage.prototype.overallHeight = function() {
+    if (!this._yOffsets || this._yOffsets.length === 0) return this.innerHeight;
+    const last = this._yOffsets.length - 1;
+    return this._yOffsets[last] + this._computedHeights[last];
+};
+
+Window_ChatMessage.prototype.contentsHeight = function() {
+    return Math.max(this.innerHeight, this.overallHeight());
+};
+
+Window_ChatMessage.prototype.itemRect = function(index) {
+    if (!this._yOffsets || index < 0 || index >= this._yOffsets.length) {
+        return new Rectangle(0, -9999, this.innerWidth - 8, 36);
+    }
+    const x = this.colSpacing() / 2 - this.scrollBaseX();
+    const y = this._yOffsets[index] - this.scrollBaseY();
+    const w = this.innerWidth - this.colSpacing();
+    const h = this._computedHeights[index];
+    return new Rectangle(x, y, w, h);
+};
+
+// Draw every item on each paint; items outside the viewport are clipped.
+Window_ChatMessage.prototype.topIndex = function() { return 0; };
+Window_ChatMessage.prototype.maxVisibleItems = function() { return this.maxItems(); };
+
+Window_ChatMessage.prototype.drawAllItems = function() {
+    const count = this.maxItems();
+    for (let i = 0; i < count; i++) {
+        this.drawItem(i);
+    }
+};
+
+Window_ChatMessage.prototype.hitTest = function(x, y) {
+    if (!this.innerRect.contains(x, y)) return -1;
+    // innerY is position within the visible area (view space).
+    // itemRect(i).y = _yOffsets[i] - scrollBaseY() is also in view space.
+    const innerY = this.origin.y + y - this.padding;
+    for (let i = 0; i < this._flatItems.length; i++) {
+        const itemY = this._yOffsets[i] - this.scrollBaseY();
+        if (innerY >= itemY && innerY < itemY + this._computedHeights[i]) {
+            return i;
+        }
+    }
+    return -1;
+};
+
+Window_ChatMessage.prototype.ensureCursorVisible = function(smooth) {
+    const index = this.index();
+    if (index < 0 || !this._yOffsets || index >= this._yOffsets.length) return;
+    const itemTop    = this._yOffsets[index];
+    const itemBottom = itemTop + this._computedHeights[index];
+    const scrollY    = this.scrollY();
+    const scrollMin  = itemBottom - this.innerHeight;
+    if (scrollY > itemTop) {
+        smooth ? this.smoothScrollTo(0, itemTop) : this.scrollTo(0, itemTop);
+    } else if (scrollY < scrollMin) {
+        smooth ? this.smoothScrollTo(0, scrollMin) : this.scrollTo(0, scrollMin);
+    }
+};
+
+//-----------------------------------------------------------------------------
+// Drawing
+//-----------------------------------------------------------------------------
 
 Window_ChatMessage.prototype.drawItem = function(index) {
-    const message = this._messages[index];
-    if (!message) return;
+    if (!this._flatItems || index >= this._flatItems.length) return;
+    const item = this._flatItems[index];
+    if (!item) return;
 
-    const rect = this.itemLineRect(index);
-    const lineHeight = this.lineHeight();
+    const message  = item.message;
+    const isReply  = item.isReply;
+    const rect     = this.itemRect(index);
+    const lh       = this.lineHeight();
 
-    // Draw message box background
-    this.contents.fillRect(rect.x, rect.y, rect.width - 4, rect.height - 2, 
-                          this.getMessageColor(message));
+    const indent = isReply ? 32 : 0;
+    const topPad = isReply ? 8  : 0;
 
-    // Draw username
+    // Blue left bar for replies
+    if (isReply) {
+        this.contents.fillRect(rect.x + 2, rect.y + topPad, 4,
+            rect.height - topPad - 4, '#4488dd');
+    }
+
+    // Message box background
+    this.contents.fillRect(
+        rect.x + indent, rect.y + topPad,
+        rect.width - indent - 4, rect.height - topPad - 2,
+        this.getMessageColor(message)
+    );
+
+    // Username
     this.contents.fontSize = 18;
-    this.changeTextColor(ColorManager.textColor(7)); // Light color for username
-    this.drawText(message.username, rect.x + 12, rect.y + 4, 200);
+    this.changeTextColor(ColorManager.textColor(7));
+    this.drawText(message.username, rect.x + indent + 12, rect.y + topPad + 4, 200);
 
-    // Draw timestamp — stop 40px from the right edge to leave room for ⋮
+    // Timestamp
     this.contents.fontSize = 14;
     this.changeTextColor(ColorManager.textColor(7));
-    const timeStr = this.formatTime(message.created_at);
-    this.drawText(timeStr, rect.x + rect.width - 160, rect.y + 4, 120, 'right');
+    this.drawText(
+        this.formatTime(message.created_at),
+        rect.x + rect.width - 140, rect.y + topPad + 6,
+        120, 'right'
+    );
 
-    // ⋮ button — drawn using RPG Maker's standard outer-border + inner-fill pattern
-    const btnW = 30;
-    const btnH = 26;
-    const btnX = rect.x + rect.width - btnW - 6;
-    const btnY = rect.y + 4;
-    this.contents.fillRect(btnX, btnY, btnW, btnH, 'rgba(255,255,255,0.45)');
-    this.contents.fillRect(btnX + 1, btnY + 1, btnW - 2, btnH - 2, 'rgba(0,0,0,0.65)');
-    this.contents.fontSize = 18;
-    this.changeTextColor(ColorManager.normalColor());
-    this.drawText("⋮", btnX, btnY + 1, btnW, 'center');
-
-    // Message content — keep right margin clear of the button
-    const contentWidth = rect.width - btnW - 20;
+    // Message content (wrapped)
+    const contentWidth = rect.width - indent - 24;
     this.contents.fontSize = 16;
     this.changeTextColor(ColorManager.normalColor());
     const wrappedText = this.wrapText(message.content, contentWidth);
-    let yOffset = rect.y + 28;
-
+    let yOffset = rect.y + topPad + 28;
     for (const line of wrappedText) {
-        this.drawText(line, rect.x + 12, yOffset, contentWidth);
-        yOffset += lineHeight - 8;
-    }
-
-    // Reply thread indicator
-    if (message.parent_message_id) {
-        this.contents.fontSize = 12;
-        this.changeTextColor(ColorManager.textColor(14));
-        this.drawText("↳ reply", rect.x + 12, rect.y + rect.height - 20, 80);
+        this.drawText(line, rect.x + indent + 12, yOffset, contentWidth);
+        yOffset += lh - 8;
     }
 
     this.resetTextColor();
@@ -111,64 +253,57 @@ Window_ChatMessage.prototype.drawItem = function(index) {
 
 Window_ChatMessage.prototype.getMessageColor = function(message) {
     if (message.user_id === AuthManager.getUserId()) {
-        return 0x1a4d1a; // Green-tinted for own messages
+        return 0x1a4d1a; // green-tinted for own messages
     }
-    return 0x1a1a2e; // Dark blue-ish for other messages
+    return 0x1a1a2e; // dark blue for other messages
 };
+
+//-----------------------------------------------------------------------------
+// Text helpers
+//-----------------------------------------------------------------------------
 
 Window_ChatMessage.prototype.wrapText = function(text, maxWidth) {
     const lines = [];
-    const words = text.split(' ');
+    const words = (text || '').split(' ');
     let currentLine = '';
 
     for (const word of words) {
         const testLine = currentLine + (currentLine ? ' ' : '') + word;
-        const width = this.textWidth(testLine);
-
-        if (width > maxWidth && currentLine) {
+        if (this.textWidth(testLine) > maxWidth && currentLine) {
             lines.push(currentLine);
             currentLine = word;
         } else {
             currentLine = testLine;
         }
     }
-
-    if (currentLine) {
-        lines.push(currentLine);
-    }
-
+    if (currentLine) lines.push(currentLine);
     return lines.length > 0 ? lines : [text];
 };
 
 Window_ChatMessage.prototype.formatTime = function(isoString) {
     try {
-        const date = new Date(isoString);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-
-        if (diffMins < 1) {
-            return "Just now";
-        } else if (diffMins < 60) {
-            return diffMins + "m ago";
-        } else if (diffMins < 1440) {
-            const hours = Math.floor(diffMins / 60);
-            return hours + "h ago";
-        } else {
-            return date.toLocaleDateString();
-        }
+        const date    = new Date(isoString);
+        const diffMs  = Date.now() - date;
+        const diffMin = Math.floor(diffMs / 60000);
+        if (diffMin < 1)    return "Just now";
+        if (diffMin < 60)   return diffMin + "m ago";
+        if (diffMin < 1440) return Math.floor(diffMin / 60) + "h ago";
+        return date.toLocaleDateString();
     } catch (e) {
         return "";
     }
 };
 
-// Block keyboard OK (Enter/Z) so it never opens the action menu —
-// Enter is handled by the DOM keydown listener in Window_ChatInput instead.
+//-----------------------------------------------------------------------------
+// Input handling
+//-----------------------------------------------------------------------------
+
+// Block keyboard OK (Enter/Z) — Enter is handled by Window_ChatInput's DOM listener.
 Window_ChatMessage.prototype.isOkTriggered = function() {
     return false;
 };
 
-// Single-click opens the action menu instead of requiring a double-click.
+// Single-click opens the action menu (no double-click required).
 Window_ChatMessage.prototype.onTouchSelect = function(trigger) {
     if (!this.isCursorMovable()) return;
     const index = this.hitTest(TouchInput.x, TouchInput.y);
@@ -179,10 +314,23 @@ Window_ChatMessage.prototype.onTouchSelect = function(trigger) {
 };
 
 Window_ChatMessage.prototype.processCancel = function() {
-    // Escape is handled at the scene level (popScene). Nothing to do here.
+    // Escape handled at scene level (popScene).
+};
+
+//-----------------------------------------------------------------------------
+// Refresh
+//-----------------------------------------------------------------------------
+
+// Immediately removes a message by id from the local cache and redraws.
+// Called right after a successful delete so the UI updates without waiting
+// for the next network refresh.
+Window_ChatMessage.prototype.removeMessage = function(messageId) {
+    this._messages = this._messages.filter(m => m.id !== messageId);
+    this._rebuildLayout();
+    this.refresh();
 };
 
 Window_ChatMessage.prototype.refresh = function() {
-    this.createContents();
+    this.createContents(); // bitmap sized to contentsHeight() = overallHeight()
     this.drawAllItems();
 };
