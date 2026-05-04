@@ -71,6 +71,7 @@
     let supabase = null;
     if (typeof window.supabase !== 'undefined') {
         supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        window._supabaseClient = supabase;
     }
 
     //-----------------------------------------------------------------------------
@@ -181,6 +182,12 @@
                     this._userId = data.userId;
                     this._username = data.username;
                     this._isGuest = false;
+                    // Set the JWT on the shared Supabase client so RLS policies
+                    // see the user as authenticated on all subsequent requests.
+                    await supabase.auth.setSession({
+                        access_token: data.token,
+                        refresh_token: data.refresh_token || ''
+                    });
                     this.saveSession();
                     resolve({
                         token: this._token,
