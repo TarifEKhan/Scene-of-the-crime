@@ -8,5 +8,6 @@ var $plugins =
 {"name":"Window_ChatMessage","status":true,"description":"Chat message display window","parameters":{}},
 {"name":"Window_ChatInput","status":true,"description":"Chat input window","parameters":{}},
 {"name":"ChatSystem","status":true,"description":"Global chat functionality with message posting and replies","parameters":{"enableChatMenu":"true","chatCommand":"Chat","maxMessagesPerPage":"50"}},
-{"name":"renameoptions","status":true,"description":"","parameters":{}}
+{"name":"renameoptions","status":true,"description":"","parameters":{}},
+{"name":"globalbgm","status":true,"description":"","parameters":{}}
 ];
