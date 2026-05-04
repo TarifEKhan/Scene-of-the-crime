@@ -2231,7 +2231,7 @@ Scene_Options.prototype.optionsWindowRect = function() {
 
 Scene_Options.prototype.maxCommands = function() {
     // Increase this value when adding option items.
-    return 7;
+    return 4;
 };
 
 Scene_Options.prototype.maxVisibleCommands = function() {
