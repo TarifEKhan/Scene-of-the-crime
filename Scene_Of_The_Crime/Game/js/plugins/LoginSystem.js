@@ -671,6 +671,54 @@
         Window_Selectable.prototype.initialize.call(this, rect);
         this._editWindow = null;
         this._index = 0;
+        this._keyDownListener = null;
+        this.setupKeyboardInput();
+    };
+
+    Window_LoginInput.prototype.setupKeyboardInput = function() {
+        const self = this;
+        this._keyDownListener = function(e) {
+            if (!(SceneManager._scene instanceof Scene_Login)) return;
+            if (!self._editWindow || !self.active || !self.visible) return;
+
+            if (e.key && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                e.preventDefault();
+                if (self._editWindow.add(e.key)) {
+                    SoundManager.playCursor();
+                } else {
+                    SoundManager.playBuzzer();
+                }
+                return;
+            }
+
+            switch (e.key) {
+                case 'Backspace':
+                    e.preventDefault();
+                    if (self._editWindow.back()) {
+                        SoundManager.playCancel();
+                    } else {
+                        SoundManager.playBuzzer();
+                    }
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    self.callOkHandler();
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    self.callCancelHandler();
+                    break;
+            }
+        };
+        document.addEventListener('keydown', this._keyDownListener);
+    };
+
+    Window_LoginInput.prototype.destroy = function(options) {
+        if (this._keyDownListener) {
+            document.removeEventListener('keydown', this._keyDownListener);
+            this._keyDownListener = null;
+        }
+        Window_Selectable.prototype.destroy.call(this, options);
     };
 
     Window_LoginInput.prototype.setEditWindow = function(editWindow) {
