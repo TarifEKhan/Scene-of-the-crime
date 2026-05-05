@@ -1390,7 +1390,7 @@ Scene_Menu.prototype.createCommandWindow = function() {
 
 Scene_Menu.prototype.commandWindowRect = function() {
     const ww = this.mainCommandWidth();
-    const wh = this.calcWindowHeight(4, true); // adjust height if needed
+    const wh = this.calcWindowHeight(5, true); // adjust height if needed
 
     const wx = (Graphics.boxWidth - ww) / 2;
     const wy = (Graphics.boxHeight - wh) / 2;
