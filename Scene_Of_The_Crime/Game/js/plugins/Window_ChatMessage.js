@@ -306,7 +306,9 @@ Window_ChatMessage.prototype.isOkTriggered = function() {
 // Single-click opens the action menu (no double-click required).
 Window_ChatMessage.prototype.onTouchSelect = function(trigger) {
     if (!this.isCursorMovable()) return;
-    const index = this.hitTest(TouchInput.x, TouchInput.y);
+    const touchPos = new Point(TouchInput.x, TouchInput.y);
+    const localPos = this.worldTransform.applyInverse(touchPos);
+    const index = this.hitTest(localPos.x, localPos.y);
     if (index >= 0) {
         this.select(index);
         if (trigger) this.processOk();
