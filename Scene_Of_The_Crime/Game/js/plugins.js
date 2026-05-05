@@ -12,5 +12,6 @@ var $plugins =
 {"name":"globalbgm","status":true,"description":"","parameters":{}},
 {"name":"LeaderboardSystem","status":true,"description":"Leaderboard system tracking completion time","parameters":{}},
 {"name":"Scene_Leaderboard","status":true,"description":"Leaderboard display scene","parameters":{}},
-{"name":"LeaderboardMenu","status":true,"description":"Add Leaderboard to menu","parameters":{}}
+{"name":"LeaderboardMenu","status":true,"description":"Add Leaderboard to menu","parameters":{}},
+{"name":"TitleLeaderboardButton","status":true,"description":"Add Leaderboard button to Title Screen","parameters":{}}
 ];
