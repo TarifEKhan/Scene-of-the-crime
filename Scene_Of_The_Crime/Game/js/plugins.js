@@ -9,5 +9,8 @@ var $plugins =
 {"name":"Window_ChatInput","status":true,"description":"Chat input window","parameters":{}},
 {"name":"ChatSystem","status":true,"description":"Global chat functionality with message posting and replies","parameters":{"enableChatMenu":"true","chatCommand":"Chat","maxMessagesPerPage":"50"}},
 {"name":"renameoptions","status":true,"description":"","parameters":{}},
-{"name":"globalbgm","status":true,"description":"","parameters":{}}
+{"name":"globalbgm","status":true,"description":"","parameters":{}},
+{"name":"LeaderboardSystem","status":true,"description":"Leaderboard system tracking completion time","parameters":{}},
+{"name":"Scene_Leaderboard","status":true,"description":"Leaderboard display scene","parameters":{}},
+{"name":"LeaderboardMenu","status":true,"description":"Add Leaderboard to menu","parameters":{}}
 ];
