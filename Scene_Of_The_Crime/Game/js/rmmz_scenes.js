@@ -1363,13 +1363,13 @@ Scene_Menu.prototype.helpAreaHeight = function() {
 Scene_Menu.prototype.create = function() {
     Scene_MenuBase.prototype.create.call(this);
     this.createCommandWindow();
-    this.createGoldWindow();
-    this.createStatusWindow();
+    //this.createGoldWindow();
+    //this.createStatusWindow();
 };
 
 Scene_Menu.prototype.start = function() {
     Scene_MenuBase.prototype.start.call(this);
-    this._statusWindow.refresh();
+    //this._statusWindow.refresh();
 };
 
 Scene_Menu.prototype.createCommandWindow = function() {
@@ -1390,9 +1390,11 @@ Scene_Menu.prototype.createCommandWindow = function() {
 
 Scene_Menu.prototype.commandWindowRect = function() {
     const ww = this.mainCommandWidth();
-    const wh = this.mainAreaHeight() - this.goldWindowRect().height;
-    const wx = this.isRightInputMode() ? Graphics.boxWidth - ww : 0;
-    const wy = this.mainAreaTop();
+    const wh = this.calcWindowHeight(4, true); // adjust height if needed
+
+    const wx = (Graphics.boxWidth - ww) / 2;
+    const wy = (Graphics.boxHeight - wh) / 2;
+
     return new Rectangle(wx, wy, ww, wh);
 };
 
@@ -2229,7 +2231,7 @@ Scene_Options.prototype.optionsWindowRect = function() {
 
 Scene_Options.prototype.maxCommands = function() {
     // Increase this value when adding option items.
-    return 7;
+    return 4;
 };
 
 Scene_Options.prototype.maxVisibleCommands = function() {

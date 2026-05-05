@@ -3005,9 +3005,9 @@ Window_Options.prototype.makeCommandList = function() {
 };
 
 Window_Options.prototype.addGeneralOptions = function() {
-    this.addCommand(TextManager.alwaysDash, "alwaysDash");
-    this.addCommand(TextManager.commandRemember, "commandRemember");
-    this.addCommand(TextManager.touchUI, "touchUI");
+    //this.addCommand(TextManager.alwaysDash, "alwaysDash");
+    //this.addCommand(TextManager.commandRemember, "commandRemember");
+    //this.addCommand(TextManager.touchUI, "touchUI");
 };
 
 Window_Options.prototype.addVolumeOptions = function() {
