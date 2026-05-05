@@ -9,8 +9,32 @@
     const supabaseKey = window.GAME_CONFIG?.SUPABASE_ANON_KEY;
 
     let supabase = null;
-    if (typeof window.supabase !== 'undefined' && supabaseUrl && supabaseKey) {
-        supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    // Initialize supabase client
+    function initSupabase() {
+        if (supabase) return supabase;
+
+        // Check if Supabase library is loaded
+        if (typeof window.supabase === 'undefined') {
+            console.error('Supabase library not loaded');
+            return null;
+        }
+
+        // Check for config
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('Supabase config missing');
+            return null;
+        }
+
+        // Create client
+        try {
+            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+            console.log('LeaderboardSystem: Supabase client created');
+            return supabase;
+        } catch (error) {
+            console.error('Failed to create Supabase client:', error);
+            return null;
+        }
     }
 
     window.LeaderboardManager = class {
@@ -35,13 +59,14 @@
         }
 
         static async submitScore(timeInSeconds) {
-            if (!supabase) {
+            const client = initSupabase();
+            if (!client) {
                 console.error('Supabase not configured');
                 return;
             }
             if (!window.AuthManager || !window.AuthManager.currentUser) return;
 
-            const { error } = await supabase
+            const { error } = await client
                 .from('leaderboard')
                 .insert({
                     user_id: window.AuthManager.currentUser.id,
@@ -53,18 +78,24 @@
         }
 
         static async getTopScores(limit = 10) {
-            if (!supabase) {
+            const client = initSupabase();
+            if (!client) {
                 console.error('Supabase not configured');
                 return [];
             }
 
-            const { data, error } = await supabase
+            const { data, error } = await client
                 .from('leaderboard')
                 .select('username, completion_time')
                 .order('completion_time', { ascending: true })
                 .limit(limit);
 
-            return error ? [] : data;
+            if (error) {
+                console.error('Leaderboard fetch error:', error);
+                return [];
+            }
+
+            return data || [];
         }
 
         static formatTime(seconds) {
