@@ -5,36 +5,8 @@
  */
 
 (() => {
-    const supabaseUrl = window.GAME_CONFIG?.SUPABASE_URL;
-    const supabaseKey = window.GAME_CONFIG?.SUPABASE_ANON_KEY;
-
-    let supabase = null;
-
-    // Initialize supabase client
-    function initSupabase() {
-        if (supabase) return supabase;
-
-        // Check if Supabase library is loaded
-        if (typeof window.supabase === 'undefined') {
-            console.error('Supabase library not loaded');
-            return null;
-        }
-
-        // Check for config
-        if (!supabaseUrl || !supabaseKey) {
-            console.error('Supabase config missing');
-            return null;
-        }
-
-        // Create client
-        try {
-            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-            console.log('LeaderboardSystem: Supabase client created');
-            return supabase;
-        } catch (error) {
-            console.error('Failed to create Supabase client:', error);
-            return null;
-        }
+    function getSupabaseClient() {
+        return window._supabaseClient || null;
     }
 
     window.LeaderboardManager = class {
@@ -59,18 +31,18 @@
         }
 
         static async submitScore(timeInSeconds) {
-            const client = initSupabase();
+            const client = getSupabaseClient();
             if (!client) {
                 console.error('Supabase not configured');
                 return;
             }
-            if (!window.AuthManager || !window.AuthManager.currentUser) return;
+            if (!window.AuthManager || !window.AuthManager.isAuthenticated() || window.AuthManager.isGuest()) return;
 
             const { error } = await client
                 .from('leaderboard')
                 .insert({
-                    user_id: window.AuthManager.currentUser.id,
-                    username: window.AuthManager.currentUser.username,
+                    user_id: window.AuthManager.getUserId(),
+                    username: window.AuthManager.getUsername(),
                     completion_time: timeInSeconds
                 });
 
@@ -78,7 +50,7 @@
         }
 
         static async getTopScores(limit = 10) {
-            const client = initSupabase();
+            const client = getSupabaseClient();
             if (!client) {
                 console.error('Supabase not configured');
                 return [];
