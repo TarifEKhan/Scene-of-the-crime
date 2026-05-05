@@ -1,7 +1,7 @@
 [
 null,
 {"id":1,"expanded":true,"name":"MAP001","order":1,"parentId":0,"scrollX":802,"scrollY":442,"quick":false},
-{"id":2,"expanded":false,"name":"All Rooms","order":2,"parentId":1,"scrollX":1077,"scrollY":550,"quick":false},
+{"id":2,"expanded":false,"name":"All Rooms","order":2,"parentId":1,"scrollX":811,"scrollY":907,"quick":false},
 {"id":3,"expanded":false,"name":"Harold's Room","order":3,"parentId":1,"scrollX":811,"scrollY":451,"quick":false},
 {"id":4,"expanded":false,"name":"Barry's Room","order":4,"parentId":1,"scrollX":811,"scrollY":451,"quick":false},
 {"id":5,"expanded":false,"name":"Peter's Room","order":5,"parentId":1,"scrollX":811,"scrollY":451,"quick":false},
