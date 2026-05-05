@@ -5,7 +5,13 @@
  */
 
 (() => {
-    const supabase = window.supabase;
+    const supabaseUrl = window.GAME_CONFIG?.SUPABASE_URL;
+    const supabaseKey = window.GAME_CONFIG?.SUPABASE_ANON_KEY;
+
+    let supabase = null;
+    if (typeof window.supabase !== 'undefined' && supabaseUrl && supabaseKey) {
+        supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    }
 
     window.LeaderboardManager = class {
         static startTime = null;
@@ -29,6 +35,10 @@
         }
 
         static async submitScore(timeInSeconds) {
+            if (!supabase) {
+                console.error('Supabase not configured');
+                return;
+            }
             if (!window.AuthManager || !window.AuthManager.currentUser) return;
 
             const { error } = await supabase
@@ -43,6 +53,11 @@
         }
 
         static async getTopScores(limit = 10) {
+            if (!supabase) {
+                console.error('Supabase not configured');
+                return [];
+            }
+
             const { data, error } = await supabase
                 .from('leaderboard')
                 .select('username, completion_time')
