@@ -15,13 +15,10 @@
 
         static startTimer() {
             this.startTime = Date.now();
-            $gameVariables.setValue(100, this.startTime);
         }
 
         static async completeLevel() {
-            if (!this.startTime && $gameVariables.value(100)) {
-                this.startTime = $gameVariables.value(100);
-            }
+            if (!this.startTime) return 0;
 
             this.completionTime = Date.now();
             const timeInSeconds = Math.floor((this.completionTime - this.startTime) / 1000);
@@ -80,7 +77,7 @@
     const _Scene_Map_start = Scene_Map.prototype.start;
     Scene_Map.prototype.start = function() {
         _Scene_Map_start.call(this);
-        if (!$gameVariables.value(100)) {
+        if (!LeaderboardManager.startTime) {
             LeaderboardManager.startTimer();
         }
     };
