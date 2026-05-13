@@ -52,8 +52,6 @@ Scene-of-the-crime/Scene_Of_The_Crime/Game/
 ### 3. Run the Game
 
 - Press the **Playtest** button in RPG Maker MZ  
-  **or**
-- Run the deployed executable (if available)
 
 ---
 
