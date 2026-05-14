@@ -86,3 +86,8 @@ Scene-of-the-crime/
 - Sumi Yi
 - Abhishek Prabhu
 - Joshua Krone
+
+## Development Notes
+
+The project was initially proposed to be developed using Unity. 
+During early development, the team pivoted to RPG Maker MZ to better align with the project scope and timeline, allowing us to focus on core gameplay mechanics such as investigation, dialogue, and logical deduction.
